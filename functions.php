@@ -1,4 +1,7 @@
 <?php
+
+// root functions, not part of a class
+
 function strip_zeros_from_date($marked_string=""){
     // first remove the marked zeros
     $no_zeros = str_replace('*0', '', $marked_string);
@@ -14,11 +17,31 @@ function redirect_to($location= NULL){
     }
 }
 
-function output_message($message=""){
+function output_message($message = ""){
     if(!empty($message)){
         return "<p class=\"message\">{$message}</p>";
     }else{
-        return"";
+        return "";
     }
+}
+
+// defined function like __construct but outside the class
+/* if PHP doesn't find a class it will stop and will look for __outoload to ask it what to do
+ and PHP will pass the class name as an argument*/
+function __autoload($class_name){
+    $class_name = strtolower($class_name);
+    $path = LIB_PATH.DS."{$class_name}.php";
+    if(file_exists($path)){
+        require_once ($path);
+    }else{
+        die("The file {$class_name}.php couldn't be found.");
+    }
+}
+
+
+// if we had a lot of layouts we could roll them into a class/
+function include_layout_template($template=""){
+    // help us to locate the layout wherever it was
+ include(SITE_ROOT.DS.'public'.DS.'layouts'.DS.$template);
 }
 ?>
