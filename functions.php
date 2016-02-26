@@ -44,4 +44,9 @@ function include_layout_template($template=""){
     // help us to locate the layout wherever it was
  include(SITE_ROOT.DS.'public'.DS.'layouts'.DS.$template);
 }
+
+function datetime_to_text($datetime=""){
+    $unixdatetime = strtotime($datetime); // to convert to a timestamp
+    return strftime("%B %d, %Y at %I:%M %p", $unixdatetime); // then format it to nice way (you can have your own format
+}
 ?>

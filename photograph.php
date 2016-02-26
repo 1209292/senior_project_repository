@@ -1,52 +1,148 @@
 <?php
-// require DB to any class that needs it before we start
 
 require_once (LIB_PATH.DS."database.php");
-class User extends DatabaseObject{
 
-    protected static $table_name = "users";
-    protected static $db_fields = array('id', 'username', 'password',
-        'first_name', 'last_name');
+class Photograph extends DatabaseObject{
+
+    protected static $table_name = "Photographs";
+    protected static $db_fields = array('id', 'filename', 'type',
+        'size', 'caption');
     public $id;
-    public $username;
-    public $password;
-    public $first_name;
-    public $last_name;
+    public $filename;
+    public $type;
+    public $size;
+    public $caption;
 
+    private $temp_path; // provided to us when we upload a file, where the file before go to final distnation
+    protected $upload_dir="images";
+    public $errors=array(); // as we upload, save, move photos we can keep track and catalog the errors
+                            // and then return them; so we are not limited to the errors below
+    protected $upload_errors = array(
+        UPLOAD_ERR_OK           => "No errors.",
+        UPLOAD_ERR_INI_SIZE     => "Larger than upload_max_filesize.",
+        UPLOAD_ERR_FORM_SIZE    => "Larger than MAX_FILE_SIZE",
+        UPLOAD_ERR_PARTIAL      => "Patal upload.",
+        UPLOAD_ERR_NO_FILE      => "No file.",
+        UPLOAD_ERR_NO_TMP_DIR   => "No temporary directory.",
+        UPLOAD_ERR_CANT_WRITE   => "Can't write to disk.",
+        UPLOAD_ERR_EXTENSION    => "File upload stopped by extension"
+);
 
-    // static methods when we don't need an object to work with the method, work with them from the class level
-    // nonstatic method will need an object to start with, like create(), update(), delete()
-    public function full_name(){
-        if(isset($this->first_name) && isset($this->last_name)){
-            return $this->first_name . " " . $this->last_name;
-        }else{
-            return "";
+    // Pass in $_FILES['uoloaded_file'] as an argument
+    public function attach_file($file){
+        // Perform error checking on the form parameters
+        if(!$file || empty($file) || !is_array($file)){
+            // error: nothing uploaded or wrong argument usage
+            $this->errors[] = "No file was uploaded.";
+            return false;
+        }elseif($file['error'] != 0){
+            // error: report what PHP says went wrong
+            $this->errors[] = $this->upload_errors[$file['error']];
+            return false;
+        }else {
+            // Set object attributes to the form parameters.
+            $this->temp_path = $file['tmp_name'];
+            $this->filename = basename($file['name']);
+            $this->type = $file['type'];
+            $this->size = $file['size'];
+            // don't worry about saving to the database yet.
+            return true;
         }
     }
 
-    public static function authenticate($username="", $password=""){
-        global $database;
-        $username = $database->escape_value($username);
-        $password = $database->escape_value($password);
+    public function save(){
+        // A new record won't have an id yet.
+        if(isset($this->id)){
+            // really just to update the caption
+            $this->update();
+        } else {
+            // *** Make sure there are no errors
 
-        $sql = "SELECT * FROM users";
-        $sql .= " WHERE username = '{$username}'";
-        $sql .= " AND password = '{$password}'";
-        $sql .= " LIMIT 1";
+            // Can't save if there are pre-existing errors
+            if(!empty($this->errors)) {return false;}
+            // make sure the caption is not too long
+            if(strlen($this->caption) >= 255){
+                $this->errors[] = "The caption can only be 255 characters long.";
+                return false;
+            }
+            // Can't save without the filename and temp location
+            if(empty($this->filename) || empty($this->temp_path)){
+                $this->errors[] = "The file location was not available.";
+                return false;
+            }
+            // Determine the target path
+            $terget_path = SITE_ROOT .DS. 'public' .DS. $this->upload_dir .DS. $this->filename;
+            // Make sure the file is not already exists in  the target location
+            if(file_exists($terget_path)){
+                $this->errors[] = "The file {$this->filename} already exists.";
+                return false;
+            }
+            // *** attemt to move the file
 
-        $result_array = self::find_by_sql($sql);
-        return !empty($result_array)? array_shift($result_array) : false;
+            if(move_uploaded_file($this->temp_path, $terget_path)){
+                //Success
+                // Save a corresponding entry to the database
+                if($this->create()){
+                    // we are done with temp_file, the file isn't there anymore
+                    unset($this->temp_path);
+                    return true;
+                }
+            }else{
+                // Failure
+                $this->errors = "The file upload failed, propably due to incorrect permission
+                on the upload folder.";
+            }
+        }
     }
 
-    // Common Database Methods
+    // you could remove the database entry first, then this one
+    // but if we removed the databse first, even if the file still setting there, but it will
+    // not be longer in the website
+    public function destroy(){
+        // **first remove the database entry
+        if($this->delete()){
+            // remove the file
+            $target_path = SITE_ROOT .DS.'public'.DS.$this->image_path();
+            return unlink($target_path) ? true : false;
+        }else{
+            // database delete failed
+            return false;
+        }
+        //**second remove the file
 
+    }
+
+    public function image_path(){
+        // (DS) directory separator not working???
+        return $this->upload_dir . "/" . $this->filename;
+    }
+
+    public function size_as_text(){
+        if($this->size < 1024){
+            return "{$this->size}";
+        }elseif($this->size < 1048576){
+            $size_kb = round($this->size / 1024);
+            return "{$size_kb} KB";
+        }else{
+            $size_mb = round($this->size / 1048576, 1);
+            return "{$size_mb} MB";
+        }
+    }
+
+    public function comments(){
+        return Comment::find_comments_on($this->id);
+    }
+
+    // Common DB methods, copied as it is from user class, if we had DatabaseObject created
+    // we could promote all these methods and inhirate them with no need to rewrite them again
     public static function find_all(){
         return self::find_by_sql("select * from " . self::$table_name);
     }
 
     public static function find_by_id($id=0){
         global $database;
-        $result_array = self::find_by_sql("select * from ". self::$table_name ." where id ={$id} limit 1");
+        $result_array = self::find_by_sql("SELECT * FROM ". self::$table_name ." WHERE id =
+        {$database->escape_value($id)} LIMIT 1");
         // if $result_array empty, then return false, else get the item out of $result_array and return it
         return !empty($result_array)? array_shift($result_array) : false;
     }
@@ -104,7 +200,6 @@ class User extends DatabaseObject{
         return array_key_exists($attribute, $object_vars);
     }
 
-
     protected function attributes(){
         // return an array of attribute keys and thier values
         return get_object_vars($this);
@@ -139,16 +234,15 @@ class User extends DatabaseObject{
     // we could have pormote these three methods into the DatabaseObject class
 
 
-    /*save() prevent mistakes, *** cuz create() will create a record, but if we said create again
-    it will create the record again, create() does't has a machinesm to check if the record already
-    created or not,we add sth on create() to check first then create, but it is easier to do it like this
-    (opinion of auther)this will make the object smart*/
 
-    public function save(){
-        // A new record won't have an id yet
 
-        return isset($this->id)? $this->update() : $this->create();
-    }
+// save() replaced with a custom save method
+
+//    public function save(){
+//        // A new record won't have an id yet
+//
+//        return isset($this->id)? $this->update() : $this->save();
+//    }
 
     // if we gonna use save, create and update should be protected
     public function create(){
@@ -160,7 +254,7 @@ class User extends DatabaseObject{
         // single-quotes aroound all values
         // escape all values to prevent SQL injection
 
-        $sql = "INSERT INTO ". self::$table_name ." (";
+        $sql = "INSERT INTO ". self::$table_name . " (";
         $sql .= join(", ", array_keys($attributes));
         $sql .= ") VALUES ('";
         $sql .= join("', '", array_values($attributes));
@@ -199,8 +293,7 @@ class User extends DatabaseObject{
         return($database->affected_rows() == 1)? true : false;
 
     }
-
-
 }
+
 
 ?>

@@ -1,44 +1,42 @@
 <?php
 // require DB to any class that needs it before we start
-
 require_once (LIB_PATH.DS."database.php");
-class User extends DatabaseObject{
 
-    protected static $table_name = "users";
-    protected static $db_fields = array('id', 'username', 'password',
-        'first_name', 'last_name');
+class Comment extends DatabaseObject{
+
+    protected static $table_name = "comments";
+    protected static $db_fields = array('id', 'photograph_id', 'created',
+        'author', 'body');
     public $id;
-    public $username;
-    public $password;
-    public $first_name;
-    public $last_name;
+    public $photograph_id;
+    public $created;
+    public $author;
+    public $body;
 
-
-    // static methods when we don't need an object to work with the method, work with them from the class level
-    // nonstatic method will need an object to start with, like create(), update(), delete()
-    public function full_name(){
-        if(isset($this->first_name) && isset($this->last_name)){
-            return $this->first_name . " " . $this->last_name;
+    // can't use (new) cuz it is a key word
+    public static function make($photo_id, $author="Anonymous", $body=""){
+        if(empty(!$photo_id) && !empty($author) && !empty($body)) {
+            $comment = new Comment();
+            $comment->photograph_id = (int)$photo_id;
+            $comment->created = strftime("%Y-%m-%d %H:%M:%S", time());
+            $comment->author = $author;
+            $comment->body = $body;
+            return $comment;
         }else{
-            return "";
+            return false;
         }
     }
 
-    public static function authenticate($username="", $password=""){
+    public static function find_comments_on($photo_id){
         global $database;
-        $username = $database->escape_value($username);
-        $password = $database->escape_value($password);
-
-        $sql = "SELECT * FROM users";
-        $sql .= " WHERE username = '{$username}'";
-        $sql .= " AND password = '{$password}'";
-        $sql .= " LIMIT 1";
-
-        $result_array = self::find_by_sql($sql);
-        return !empty($result_array)? array_shift($result_array) : false;
+        $sql = "SELECT * FROM " . self::$table_name;
+        $sql .= " WHERE photograph_id =" . $database->escape_value($photo_id);
+        $sql .= " ORDER BY created ASC";
+        return self::find_by_sql($sql);
     }
 
-    // Common Database Methods
+    // Common Database Methods, if we had DatabaseObject class we wouldn't need to copy and paste each time
+    // cuz any class extends DatabaseObject will use all these common methods
 
     public static function find_all(){
         return self::find_by_sql("select * from " . self::$table_name);

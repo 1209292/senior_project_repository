@@ -14,10 +14,12 @@ class Session{
 
     private $logged_in=false;
     public $user_id;
+    public $message;
 
     function __construct()
     {
         session_start();
+        $this->check_message();
         $this->check_login();
         if($this->logged_in){
             // do a certain action right away if user logged in, not redirecting, don't be falled by that
@@ -53,8 +55,35 @@ class Session{
             $this->logged_in = false;
         }
     }
+
+    // passing parameter here is optional
+
+    private function check_message(){
+    // Is there a message stored in the session?
+    if(isset($_SESSION['message'])){
+        // Add it as an attribute and erase the stored vesion
+        $this->message = $_SESSION['message'];
+        unset($_SESSION['message']);
+    }else{
+        $this->message = "";
+    }
+}
+
+    public function message($msg=""){
+        if(!empty($msg)){
+            // then this is "set message"
+            // make sure you understand why $this->message=$msg wouldn't work
+            // cuz this way we store it in a session, we have to make this assignment ourselves
+            // otherwise it is just an attribute in a class session, not in the real session
+            $_SESSION['message'] = $msg;
+        }else{
+            // then this is "get message"
+            return $this->message;
+        }
+    }
 }
 
 $session = new Session();
+$message = $session->message();
 
 ?>
