@@ -1,6 +1,6 @@
 <html>
 <head>
-    <title>FCIT ERM: Admin</title>
+    <title>FCIT ERM: Member</title>
     <link href="../stylesheet/main.css" media="all" rel="stylesheet"
           type="text/css" />
 </head>

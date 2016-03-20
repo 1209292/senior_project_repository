@@ -30,7 +30,7 @@ function output_message($message = ""){
  and PHP will pass the class name as an argument*/
 function __autoload($class_name){
     $class_name = strtolower($class_name);
-    $path = LIB_PATH.DS."{$class_name}.php";
+    $path = "C:/wamp/www/fcit_erm/includes/{$class_name}.php";
     if(file_exists($path)){
         require_once ($path);
     }else{

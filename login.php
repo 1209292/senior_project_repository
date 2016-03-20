@@ -1,56 +1,47 @@
 <?php
-/* SITE_ROOT"..." won't help us here, cuz when this page first load, it has to know
-how to get to that initialize.php, once it gets there then eth is defined and taking care of
-but we don't have these convieniance helpers (SITE_ROOT)to work with */
 
-/* SITE_ROOT used so that PHP can locate other PHP files and puts them together
-so we can work with them*/
-require_once("../../includes/initialize.php");
+require_once ("../../includes/database.php");
+require_once ("../../includes/member.php");
+require_once ("../../includes/session.php");
+require_once ("../../includes/functions.php");
+require_once ("../../includes/admin.php");
 
-if($session->is_logged_in()){redirect_to("index.php"); }
+if($session->is_logged_in()){redirect_to("manage_content.php"); }
 
 if(isset($_POST["submit"])){ // form has been submitted
-    $username = trim($_POST['username']);
+    $id = trim($_POST['id']);
     $password = trim($_POST['password']);
 
     // check database to see if username/password exists
-    $found_user = User::authenticate($username, $password);
+    $found_user = Admin::authenticate($id, $password);
 
     if($found_user){
         $session->login($found_user);
-        redirect_to("index.php");
+        redirect_to("manage_content.php");
     }else{
         // username/password combo was not found in the database
-        $message = "Username/Password combination incorrect";
+        $message = "ID/Password combination incorrect";
     }
 } else { // form hasn't been submitted
-    $username = "";
+    $id = "";
     $password = "";
     $message = "";
 }
 
 ?>
-
-<html>
-<head>
-    <title>Photo Gallery</title>
-    <link href="../stylesheets/main.css" media="all" rel="stylesheet"
-          type="text/css" />
-</head>
-<body>
-<div id="header">
-    <h1>Photo Gellery</h1>
-</div>
+<?php include("../layouts/admin_header.php"); ?>
 <div id="main">
+    <div id="navigation">
+        </div>
     <h2>Staff Login</h2>
     <?php echo output_message($message); ?>
     <form action="login.php" method="post">
         <table>
             <tr>
-                <td>Username:</td>
+                <td>ID:</td>
                 <td>
-                    <input type="text" name="username" maxlength="30"
-                           value="<?php echo htmlentities($username); ?>" />
+                    <input type="text" name="id" maxlength="30"
+                           value="<?php echo htmlentities($id); ?>" />
                 </td>
             </tr>
             <tr>
@@ -69,11 +60,5 @@ if(isset($_POST["submit"])){ // form has been submitted
         </table>
 
     </form>
-</div>
-<div id="footer">
-    Copyright <?php echo date("Y", time());?>, Jehad Alghamdi
-</div>
 
-</body>
-</html>
-<?php if(isset($database)) {$database->close_connection(); } ?>
+    <?php include ("../layouts/admin_footer.php");?>
